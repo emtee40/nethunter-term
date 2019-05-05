@@ -4,7 +4,7 @@ buildscript {
         google()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.2.0'
+        classpath 'com.android.tools.build:gradle:3.4.0'
     }
 }
 apply plugin: 'com.android.library'
@@ -52,15 +52,16 @@ android {
     }
 }
 
+// Not sure if the below is still required but it causes errors in 2019
 // by default recent plugin version does not copy any AIDL files "to avoid publishing too much"
-android.libraryVariants.all { variant ->
+/*android.libraryVariants.all { variant ->
     Sync packageAidl = project.tasks.create("addPublic${variant.name.capitalize()}Aidl", Sync) { sync ->
         from "$project.projectDir/src/main/aidl/"
         into "$buildDir/intermediates/bundles/${variant.dirName}/aidl/"
     }
 
     variant.javaCompile.dependsOn packageAidl
-}
+}*/
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
