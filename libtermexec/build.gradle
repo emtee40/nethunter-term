@@ -22,11 +22,10 @@ android {
         versionCode rootProject.ext.versionCode
         versionName rootProject.ext.versionName
 
-
-        ndk {
-            moduleName 'libjackpal-termexec2'
-            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86'
-            ldLibs 'log', 'c'
+    }
+    externalNativeBuild {
+        ndkBuild {
+            path 'src/main/jni/Android.mk'
         }
     }
 
