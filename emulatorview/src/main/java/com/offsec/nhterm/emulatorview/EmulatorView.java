@@ -815,7 +815,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
                     Log.w(TAG, "getTextBeforeCursor(" + n + "," + flags + ")");
                 }
                 int len = Math.min(n, mCursor);
-                if (len <= 0 || mCursor < 0 || mCursor >= mImeBuffer.length()) {
+                if (len <= 0 || mCursor >= mImeBuffer.length()) {
                     return "";
                 }
                 return mImeBuffer.substring(mCursor-len, mCursor);
@@ -1499,7 +1499,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
 
     private void pasteClipboard() {
         ClipboardManagerCompat clip = ClipboardManagerCompatFactory.getManager(this.getContext());
-        if (clip.hasText() == false) {
+        if (!clip.hasText()) {
             return;
         }
         CharSequence paste = clip.getText();
@@ -1904,7 +1904,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         SharedPreferences pref = context.getSharedPreferences("dev", Context.MODE_PRIVATE);
         Editor editor = pref.edit();
         editor.putBoolean(key, value);
-        editor.commit();
+        editor.apply();
         return value;
     }
 
@@ -2264,6 +2264,13 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
             return link.getURL();
         else
             return null;
+    }
+
+    public String getTranscriptScreenText() {
+        if (mEmulator == null) return null;
+        TranscriptScreen ts = mEmulator.getScreen();
+        if (ts == null) return null;
+        return ts.getTranscriptScreenText();
     }
 
     public void reset() {

@@ -9,11 +9,10 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode rootProject.ext.versionCode
         versionName rootProject.ext.versionName
-
-        ndk {
-            moduleName "libjackpal-androidterm5nhj1"
-            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86'
-            ldLibs 'log', 'c'
+    }
+    externalNativeBuild {
+        ndkBuild {
+            path 'src/main/jni/Android.mk'
         }
     }
     lintOptions {
@@ -46,5 +45,5 @@ android {
 dependencies {
     implementation project(':emulatorview')
     implementation project(':libtermexec')
-    implementation 'com.android.support:support-v4:+'
+    implementation 'com.android.support:support-v4:28.0.0'
 }
