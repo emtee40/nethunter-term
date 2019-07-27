@@ -58,7 +58,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -777,8 +776,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         int id = item.getItemId();
         if (id == R.id.menu_preferences) {
             doPreferences();
-        } else if (id == R.id.menu_chroot_path) {
-            doConfigChrootPath();
         } else if (id == R.id.menu_new_window) {
             doCreateNewWindow();
         } else if (id == R.id.menu_close_window) {
@@ -899,7 +896,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                                 if(CheckRoot.isDeviceRooted()){
                                     Log.d("isDeviceRooted","Device is rooted!");
 
-                                String chroot_dir = mSettings.getChrootDir();
+                                String chroot_dir = "/data/local/nhsystem/kali-armhf"; // Not sure if I can wildcard this
 
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                                         if (!dir_exists(chroot_dir)){
@@ -994,13 +991,13 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     @TargetApi(Build.VERSION_CODES.KITKAT)
     private void NotFound(String text){
 
-        String msg = "Please config a proper Chroot Container Path in Settings.";
+        String msg = "";
 
-        //if (Objects.equals(text, "/data/data/com.offsec.nethunter/files/scripts/bootkali")){
-        //    msg = "Please run Nethunter Application to generate!";
-        //} else if (Objects.equals(text, "/data/local/nhsystem/kali-armhf")){
-        //    msg = "Missing chroot.  You need to install from Chroot Manager";
-        //}
+        if (Objects.equals(text, "/data/data/com.offsec.nethunter/files/scripts/bootkali")){
+            msg = "Please run Nethunter Application to generate!";
+        } else if (Objects.equals(text, "/data/local/nhsystem/kali-armhf")){
+            msg = "Missing chroot.  You need to install from Chroot Manager";
+        }
         /// Do something for not found text (alertDialog)
         alertDialogBuilder = new AlertDialog.Builder(this);
         //alertDialogBuilder.setView(promptsView);
@@ -1080,29 +1077,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
             }
             session.write(str);
         }
-    }
-
-    private void doConfigChrootPath(){
-        final View promptView = getLayoutInflater().inflate(R.layout.menu_chroot_path, null);
-        final EditText chrootpathEditText = promptView.findViewById(R.id.menu_chroot_path_et);
-        chrootpathEditText.setText(mSettings.getChrootDir());
-        final AlertDialog.Builder adbConfigChrootPath = new AlertDialog.Builder(this);
-        adbConfigChrootPath.setView(promptView);
-        adbConfigChrootPath.setCancelable(false);
-        adbConfigChrootPath.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                mSettings.setChrootDir(getApplicationContext(), chrootpathEditText.getText().toString());
-            }
-        });
-        adbConfigChrootPath.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-            }
-        });
-        adbConfigChrootPath.create().show();
-
     }
 
     private void doCreateNewWindow() {
