@@ -134,6 +134,20 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     private static final String PERMISSION_PATH_PREPEND_BROADCAST = "com.offsec.nhterm.permission.PREPEND_TO_PATH";
     private int mPendingPathBroadcasts = 0;
 
+    private String chroot_dir = "";
+    for (String androidArch : Build.SUPPORTED_ABIS) {
+        switch (androidArch) {
+            case "arm64-v8a":
+                chroot_dir = "/data/local/nhsystem/kali-arm64";
+            case "x86":
+                chroot_dir = "/data/local/nhsystem/kali-i386";
+            case "x86_64":
+                chroot_dir = "/data/local/nhsystem/kali-amd64";
+            default:
+                chroot_dir = "/data/local/nhsystem/kali-armhf";
+        }
+    }
+
     private Integer selectedTab;
     private Integer oldLength;
     AlertDialog.Builder alertDialogBuilder;
@@ -896,8 +910,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                                 if(CheckRoot.isDeviceRooted()){
                                     Log.d("isDeviceRooted","Device is rooted!");
 
-                                String chroot_dir = "/data/local/nhsystem/kali-armhf"; // Not sure if I can wildcard this
-
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                                         if (!dir_exists(chroot_dir)){
                                             NotFound(chroot_dir);
@@ -995,7 +1007,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
 
         if (Objects.equals(text, "/data/data/com.offsec.nethunter/files/scripts/bootkali")){
             msg = "Please run Nethunter Application to generate!";
-        } else if (Objects.equals(text, "/data/local/nhsystem/kali-armhf")){
+        } else if (Objects.equals(text, chroot_dir)){
             msg = "Missing chroot.  You need to install from Chroot Manager";
         }
         /// Do something for not found text (alertDialog)
