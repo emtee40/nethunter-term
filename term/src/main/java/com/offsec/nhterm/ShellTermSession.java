@@ -104,22 +104,30 @@ public class ShellTermSession extends GenericTermSession {
             env[1] += ":" + magisk;
         }
         env[2] = "HOME=" + settings.getHomePath();
-        // Seems the $HOSTNAME is not defined in the file /system/etc/mkshrc on android 9,
-        // so the workaround is to set the $HOSTNAME manually by running getprop net.hostname, but shoud getprop be fine to use here?
-        env[3] = "HOSTNAME=" + getSystemProperty("ro.product.name");
+        // Seems the $HOSTNAME is not defined in the file /system/etc/mkshrc on Android 9, so
+        // the workaround is to set the $HOSTNAME manually by running getprop net.hostname.
+        // But some users will not set this, so we can rely on ro.product.name to instead be
+        // our source in those cases.
+        env[3] = "HOSTNAME=" + getDroidHostname();
         // Log.d("Initialize Sess", settings.getShell());
         mProcId = createSubprocess(mShell, env);
     }
-    // Copied from stack overflow..https://stackoverflow.com/questions/16944494/system-getpropertyparam-returns-wrong-value-android by @Muzikant
-    private String getSystemProperty(String propertyName) {
-        String propertyValue = "";// let's default empty
+
+    private String getDroidHostname() {
+        int count = 0;
+        String propertyName = "net.hostname";
+        String propertyValue = "";
         try {
-            Process getPropProcess = Runtime.getRuntime().exec("getprop " + propertyName);
-            BufferedReader osRes = new BufferedReader(new InputStreamReader(getPropProcess.getInputStream()));
-            propertyValue = osRes.readLine();
+            while (isNullOrEmpty(propertyValue) || count < 2) {
+                Process getPropProcess = Runtime.getRuntime().exec("getprop " + propertyName);
+                BufferedReader osRes = new BufferedReader(new InputStreamReader(getPropProcess.getInputStream()));
+                propertyValue = osRes.readLine();
+                propertyName = "ro.product.name";
+                count += 1;
+            }
             osRes.close();
         } catch (Exception e) {
-            Log.d(": Get hostname: ", "Failed to get hostname by $(getprop net.hostname)");
+            Log.w(TermDebug.LOG_TAG, "Hostname not found!");
         }
         return propertyValue;
     }
