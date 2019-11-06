@@ -904,7 +904,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                                         } else {
                                             TermSession session = null;
                                             try {
-                                                session = createTermSession(getBaseContext(), settings, "", ShellType.KALI_LOGIN_SHELL);
+                                                session = createTermSession(getBaseContext(), settings, "", ShellType.KALI_SHELL);
                                                 session.setFinishCallback(mTermService);
                                             } catch (IOException e) {
                                                 e.printStackTrace();
