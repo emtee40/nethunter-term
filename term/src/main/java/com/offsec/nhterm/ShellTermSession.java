@@ -96,10 +96,11 @@ public class ShellTermSession extends GenericTermSession {
         if (settings.verifyPath()) {
             path = checkPath(path);
         }
-        String[] env = new String[3];
+        String[] env = new String[4];
         env[0] = "TERM=" + settings.getTermType();
-        env[1] = "PATH=" + path + ":/data/data/com.offsec.nethunter/files/scripts/";
+        env[1] = "PATH=" + path + ":" + BuildConfig.NH_APP_SCRIPT_PATH + ":" + BuildConfig.NH_APP_SCRIPT_BIN_PATH;
         env[2] = "HOME=" + settings.getHomePath();
+        env[3] = "PWD="  + "/";
        // Log.d("Initialize Sess", settings.getShell());
         mProcId = createSubprocess(mShell, env);
     }

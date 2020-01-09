@@ -596,9 +596,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     }
 
     protected static TermSession createTermSession(Context context, TermSettings settings, String initialCommand, String _mShell) throws IOException {
-
-
-
         Log.d("MM createTermSession", _mShell + "cmd: " + initialCommand);
         GenericTermSession session = new ShellTermSession(settings, initialCommand, _mShell);  // called from intents
         // XXX We should really be able to fetch this from within TermSession
