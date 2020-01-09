@@ -7,7 +7,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.4.0'
+        classpath 'com.android.tools.build:gradle:3.5.3'
     }
 }
 
@@ -20,9 +20,9 @@ allprojects {
 }
 
 ext {
-    compileSdkVersion=28
+    compileSdkVersion=29
     minSdkVersion=14
-    targetSdkVersion=28
+    targetSdkVersion=29
     //version=YYYYMMVVRR (Either "VV" for stable version OR "RR" for pre-release candidate (e.g. 0001 for rc1)
     versionCode=2020010100
     versionName="2020.1"
