@@ -24,13 +24,13 @@ import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.os.Handler;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Toast;
 import android.widget.ViewFlipper;
 import android.content.SharedPreferences;
 
-import com.offsec.nhterm.R;
 import com.offsec.nhterm.emulatorview.EmulatorView;
 import com.offsec.nhterm.emulatorview.TermSession;
 import com.offsec.nhterm.emulatorview.UpdateCallback;
@@ -50,6 +50,8 @@ public class TermViewFlipper extends ViewFlipper implements Iterable<View> {
     private Rect mWindowRect = new Rect();
     private LayoutParams mChildParams = null;
     private boolean mRedoLayout = false;
+    private static int tab_pos = 0;
+    private static boolean is_removed_view_triggered = false;
 
     /**
      * True if we must poll to discover if the view has changed size.
@@ -140,6 +142,7 @@ public class TermViewFlipper extends ViewFlipper implements Iterable<View> {
             mCheckSize.run();
         }
         resumeCurrentView();
+        setDisplayedChild(tab_pos);
     }
 
     public void pauseCurrentView() {
@@ -168,6 +171,7 @@ public class TermViewFlipper extends ViewFlipper implements Iterable<View> {
         if (view == null) {
             return;
         }
+
         TermSession session = view.getTermSession();
         if (session == null) {
             return;
@@ -207,8 +211,14 @@ public class TermViewFlipper extends ViewFlipper implements Iterable<View> {
 
     @Override
     public void setDisplayedChild(int position) {
+        if (is_removed_view_triggered) {
+            tab_pos = position - 1;
+            is_removed_view_triggered = false;
+        } else {
+            tab_pos = position;
+        }
         pauseCurrentView();
-        super.setDisplayedChild(position);
+        super.setDisplayedChild(tab_pos);
         showTitle();
         resumeCurrentView();
         notifyChange();
@@ -222,6 +232,12 @@ public class TermViewFlipper extends ViewFlipper implements Iterable<View> {
     @Override
     public void addView(View v) {
         super.addView(v, mChildParams);
+    }
+
+    @Override
+    public void removeView(View view) {
+        super.removeView(view);
+        is_removed_view_triggered = true;
     }
 
     private void updateVisibleRect() {
