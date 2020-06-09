@@ -41,6 +41,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -71,6 +72,7 @@ import com.offsec.nhterm.emulatorview.UpdateCallback;
 import com.offsec.nhterm.emulatorview.compat.ClipboardManagerCompat;
 import com.offsec.nhterm.emulatorview.compat.ClipboardManagerCompatFactory;
 import com.offsec.nhterm.emulatorview.compat.KeycodeConstants;
+import com.offsec.nhterm.util.PermissionCheck;
 import com.offsec.nhterm.util.SessionList;
 import com.offsec.nhterm.util.TermSettings;
 
@@ -364,6 +366,11 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         super.onCreate(icicle);
 
         Log.v(TermDebug.LOG_TAG, "onCreate");
+
+        // Ask for storage permission
+        if (!PermissionCheck.isAllPermitted(getApplicationContext(), PermissionCheck.DEFAULT_PERMISSIONS)) {
+            PermissionCheck.checkPermissions(getApplicationContext(), this, PermissionCheck.DEFAULT_PERMISSIONS, PermissionCheck.DEFAULT_PERMISSION_RQCODE);
+        }
 
         mPrivateAlias = new ComponentName(this, RemoteInterface.PRIVACT_ACTIVITY_ALIAS);
 
@@ -1125,6 +1132,19 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
             Log.d("NOSCREENS?","?NOSCREENS??");
         }
 
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == PermissionCheck.DEFAULT_PERMISSION_RQCODE){
+            for (int grantResult:grantResults){
+                if (grantResult != 0){
+                    return;
+                }
+            }
+        }
     }
 
     @Override
