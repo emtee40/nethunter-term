@@ -88,6 +88,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
+
 /**
  * A terminal emulator activity.
  */
@@ -141,6 +143,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     AlertDialog.Builder alertDialogBuilder;
     AlertDialog alertDialog = null;
     private BroadcastReceiver mPathReceiver = new BroadcastReceiver() {
+
         public void onReceive(Context context, Intent intent) {
             String path = makePathFromBundle(getResultExtras(false));
             if (intent.getAction().equals(ACTION_PATH_PREPEND_BROADCAST)) {
@@ -149,7 +152,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                 mSettings.setAppendPath(path);
             }
             mPendingPathBroadcasts--;
-
             if (mPendingPathBroadcasts <= 0 && mTermService != null) {
                 populateViewFlipper();
                 populateWindowList();
@@ -382,14 +384,19 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         mPrefs.registerOnSharedPreferenceChangeListener(this);
 
         Intent broadcast = new Intent(ACTION_PATH_BROADCAST);
-        if (AndroidCompat.SDK >= 12) {
+        if (android.os.Build.VERSION.SDK_INT >= 16)
+            broadcast.setFlags(FLAG_RECEIVER_FOREGROUND);
+        if (AndroidCompat.SDK >= 12)
             broadcast.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
-        }
+
         mPendingPathBroadcasts++;
         sendOrderedBroadcast(broadcast, PERMISSION_PATH_BROADCAST, mPathReceiver, null, RESULT_OK, null, null);
 
         broadcast = new Intent(broadcast);
         broadcast.setAction(ACTION_PATH_PREPEND_BROADCAST);
+        if (android.os.Build.VERSION.SDK_INT >= 16)
+            broadcast.setFlags(FLAG_RECEIVER_FOREGROUND);
+
         mPendingPathBroadcasts++;
         sendOrderedBroadcast(broadcast, PERMISSION_PATH_PREPEND_BROADCAST, mPathReceiver, null, RESULT_OK, null, null);
 
@@ -489,7 +496,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         mViewFlipper.onResume();
     }
     private void populateViewFlipper() {
-
         if (mTermService != null) {
             mTermSessions = mTermService.getSessions();
 
