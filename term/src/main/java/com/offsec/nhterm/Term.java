@@ -28,6 +28,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
@@ -41,6 +42,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
@@ -57,6 +59,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.TextView;
@@ -309,6 +312,8 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
      */
     private View.OnKeyListener mKeyListener = new View.OnKeyListener() {
         public boolean onKey(View v, int keyCode, KeyEvent event) {
+            if (!getCurrentEmulatorView().isUsingCustomInputMethod)
+                setButtonToggledBackground(findViewById(R.id.button_ctrl), getCurrentEmulatorView().isCtrlPressed_defIM);
             return backkeyInterceptor(keyCode, event) || keyboardShortcuts(keyCode, event);
         }
 
@@ -1654,6 +1659,13 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         }
     }
 
+    private void setButtonToggledBackground(View buttonView, Boolean toggled) {
+        if (toggled)
+            buttonView.getBackground().setAlpha(128);
+        else
+            buttonView.getBackground().setAlpha(255);
+    }
+
     public void onClick(View v) {
         EmulatorView view = getCurrentEmulatorView();
         switch (v.getId()) {
@@ -1661,7 +1673,12 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                 doSendActionBarKey(view, KeycodeConstants.KEYCODE_ESCAPE);
                 break;
             case R.id.button_ctrl:
-                doSendActionBarKey(view, KeycodeConstants.KEYCODE_CTRL_LEFT);
+                if (view.isUsingCustomInputMethod) {
+                    doSendActionBarKey(view, KeycodeConstants.KEYCODE_CTRL_LEFT);
+                } else {
+                    view.isCtrlPressed_defIM = !view.isCtrlPressed_defIM;
+                    setButtonToggledBackground(findViewById(R.id.button_ctrl), view.isCtrlPressed_defIM);
+                }
                 break;
             case R.id.button_alt:
                 doSendActionBarKey(view, KeycodeConstants.KEYCODE_ALT_LEFT);
