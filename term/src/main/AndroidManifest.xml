@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.offsec.nhterm"
-    android:versionName="1.0.0"
-    android:versionCode="1"
     android:installLocation="auto">
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -46,7 +44,8 @@
         android:label="@string/application_terminal"
         android:hardwareAccelerated="true"
         android:allowBackup="false"
-        android:theme="@style/Theme">
+        android:theme="@style/Theme"
+        android:requestLegacyExternalStorage="true">
         <activity android:name="com.offsec.nhterm.Term"
             android:launchMode="singleTask"
             android:resizeableActivity="true"
@@ -90,6 +89,7 @@
             </intent-filter>
         </activity-alias>
         <activity android:name="com.offsec.nhterm.RunScriptNetHunterLogin"
+            android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:permission="com.offsec.nhterm.permission.RUN_SCRIPT_NH_LOGIN">
             <intent-filter>
@@ -98,6 +98,7 @@
             </intent-filter>
         </activity>
         <activity android:name="com.offsec.nhterm.RunScriptNetHunter"
+            android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:permission="com.offsec.nhterm.permission.RUN_SCRIPT_NH">
             <intent-filter>
@@ -106,6 +107,7 @@
             </intent-filter>
         </activity>
         <activity android:name="com.offsec.nhterm.RunScriptSu"
+            android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:permission="com.offsec.nhterm.permission.RUN_SCRIPT_SU">
             <intent-filter>
@@ -114,6 +116,7 @@
             </intent-filter>
         </activity>
         <activity android:name="com.offsec.nhterm.RunScript"
+            android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:permission="com.offsec.nhterm.permission.RUN_SCRIPT">
             <intent-filter>
@@ -122,6 +125,7 @@
             </intent-filter>
         </activity>
         <activity android:name="com.offsec.nhterm.RunShortcut"
+            android:launchMode="singleTask"
             android:excludeFromRecents="true">
             <intent-filter>
                 <action android:name="com.offsec.nhterm.RUN_SHORTCUT" />

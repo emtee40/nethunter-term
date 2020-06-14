@@ -25,6 +25,7 @@ import com.offsec.nhterm.emulatorview.compat.Patterns;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Hashtable;
+import java.util.List;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
@@ -32,6 +33,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.content.pm.ApplicationInfo;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -52,6 +54,7 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CompletionInfo;
@@ -60,6 +63,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Scroller;
 
@@ -179,6 +183,10 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
     private boolean mIsAltKeySent = false;
     private boolean mIsFnKeySent = false;
 
+    // This is only used when user is using default system input method.
+    public boolean isCtrlPressed_defIM = false;
+    public boolean isUsingCustomInputMethod = false;
+
     private boolean mMouseTracking;
 
     private float mDensity;
@@ -191,6 +199,11 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
     private int mSelY1 = -1;
     private int mSelX2 = -1;
     private int mSelY2 = -1;
+
+    private ScaleGestureDetector mScaleDetector;
+    private static int origPrefTextSize = 13; // this must be static, otherwise, it will always be changed.
+    private int tempPrefTextSize;
+    private int last_tempPrefTextSize;
 
     /**
      * Routing alt and meta keyCodes away from the IME allows Alt key processing to work on
@@ -550,6 +563,8 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         mMouseTrackingFlingRunner.mScroller = new Scroller(context);
         setHwAcceleration(mHardwareAcceleration);
         mHaveFullHwKeyboard = checkHaveFullHwKeyboard(getResources().getConfiguration());
+        mScaleDetector = new ScaleGestureDetector(context, new ScaleListener());
+        origPrefTextSize = Integer.parseInt(context.getSharedPreferences("com.offsec.nhterm_preferences", Context.MODE_PRIVATE).getString("fontsize", String.valueOf((int) 13)));
     }
 
     /**
@@ -653,6 +668,11 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         outAttrs.inputType = mUseCookedIme ?
                 EditorInfo.TYPE_CLASS_TEXT | mIMEInputType:
                 EditorInfo.TYPE_NULL;
+
+        // Everytime the user change the keyboard input method, reset the meta key status and check again the user keyboard input method.
+        switchOffAllMetaKey();
+        isUsingCustomInputMethod = isUsingCustomInputMethod();
+
         return new BaseInputConnection(this, true) {
             /**
              * Used to handle composing text requests
@@ -916,11 +936,27 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
                 if (LOG_IME) {
                     Log.w(TAG, "sendKeyEvent(" + event + ")");
                 }
+
                 // Some keys are sent here rather than to commitText.
                 // In particular, del and the digit keys are sent here.
                 // (And I have reports that the HTC Magic also sends Return here.)
                 // As a bit of defensive programming, handle every key.
-                dispatchKeyEvent(event);
+
+                // So if user is using default system keyboard input method, sendKeyEvent() is called here.
+                // but somehow the key combination is not working through normal dispatchKeyEvent()
+                // the new KeyEvent class must be initialized with which meta key to use.
+                if (!isUsingCustomInputMethod) {
+                    dispatchKeyEvent(new KeyEvent(
+                            event.getDownTime(),
+                            event.getEventTime(),
+                            event.getAction(),
+                            event.getKeyCode(),
+                            event.getRepeatCount(),
+                            chooseMetaKeyToUse()));
+                    switchOffAllMetaKey();
+                } else {
+                    dispatchKeyEvent(event);
+                }
                 return true;
             }
 
@@ -1331,9 +1367,13 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         if (mIsSelectingText) {
             return onTouchEventWhileSelectingText(ev);
         } else {
-            return mGestureDetector.onTouchEvent(ev);
+            mScaleDetector.onTouchEvent(ev);
+            if (!mScaleDetector.isInProgress())
+                mGestureDetector.onTouchEvent(ev);
+            return true;
         }
     }
+
 
     private boolean onTouchEventWhileSelectingText(MotionEvent ev) {
         int action = ev.getAction();
@@ -2026,6 +2066,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         mTopOfScreenMargin = mTextRenderer.getTopMargin();
         mRows = Math.max(1, (h - mTopOfScreenMargin) / mCharacterHeight);
         mVisibleRows = Math.max(1, (mVisibleHeight - mTopOfScreenMargin) / mCharacterHeight);
+
         mTermSession.updateSize(mColumns, mRows);
 
         // Reset our paging:
@@ -2269,5 +2310,88 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
     public void reset() {
         mIMEInputType = 0;
         restartInput();
+    }
+
+    // function to choose which meta key to use, other meta keys may be added in the future.
+    public int chooseMetaKeyToUse() {
+        if (isCtrlPressed_defIM) return KeyEvent.META_CTRL_ON;
+        return 0;
+    }
+
+    // function to switch off all meta key status, other meta keys may be added in the future.
+    public void switchOffAllMetaKey() {
+        isCtrlPressed_defIM = false;
+    }
+
+    // function to check if the keyboard the user using is a default system keyboard input method
+    // default keyboard input method will call committext() function instead of sendKeyEvent() function,
+    // so it needs different way to handle the key input.
+    // https://stackoverflow.com/questions/8165618/how-to-check-if-the-native-hardware-keyboard-is-used
+    public boolean isUsingCustomInputMethod() {
+        InputMethodManager imm = (InputMethodManager) getRootView().getContext().getSystemService(
+                Context.INPUT_METHOD_SERVICE);
+        List<InputMethodInfo> mInputMethodProperties = imm.getEnabledInputMethodList();
+        final int N = mInputMethodProperties.size();
+        for (int i = 0; i < N; i++) {
+            InputMethodInfo imi = mInputMethodProperties.get(i);
+            if (imi.getId().equals(
+                    Settings.Secure.getString(getRootView().getContext().getContentResolver(),
+                            Settings.Secure.DEFAULT_INPUT_METHOD))) {
+                if ((imi.getServiceInfo().applicationInfo.flags &
+                        ApplicationInfo.FLAG_SYSTEM) == 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
+
+        private float accumlatedScaleFactor = 1.0f;
+        private boolean canSetText = false;
+
+        @Override
+        public boolean onScale(ScaleGestureDetector detector) {
+            float currentScaleFactor = detector.getScaleFactor();
+            // When accumlatedScaleFactor is at or back to initial state which means not yet accumlate with any currentScaleFactor.
+            if (accumlatedScaleFactor == 1.0f) {
+                tempPrefTextSize = origPrefTextSize;
+                last_tempPrefTextSize = tempPrefTextSize;
+            }
+
+            // Just make sure accumlatedScaleFactor smaller that 0, otherwise the text size will become negative.
+            if (accumlatedScaleFactor + (currentScaleFactor - 1.0f) >= 0) {
+                accumlatedScaleFactor += (currentScaleFactor - 1.0f);
+            } else {
+                invalidate();
+                return true;
+            }
+
+            // The minimium text size should be 2, otherwise
+            // 1: 0 * accumlatedScaleFactor will always be 0
+            // 2: 1 * 1.xx will take a long time to back to 2
+            tempPrefTextSize = Math.max((int)(origPrefTextSize * accumlatedScaleFactor), 2);
+
+            // If the size is really changed, then set the text size and update last_tempPrefTextSize
+            if (tempPrefTextSize != last_tempPrefTextSize) {
+                setTextSize(tempPrefTextSize);
+                last_tempPrefTextSize = tempPrefTextSize;
+                canSetText = true;
+            }
+            invalidate();
+            return true;
+        }
+
+        @Override
+        public void onScaleEnd(ScaleGestureDetector detector) {
+            super.onScaleEnd(detector);
+            if (canSetText) {
+                getRootView().getContext().getSharedPreferences("com.offsec.nhterm_preferences", Context.MODE_PRIVATE).edit().putString("fontsize", String.valueOf(tempPrefTextSize)).apply();
+                accumlatedScaleFactor = 1.0f;
+                origPrefTextSize = tempPrefTextSize;
+                canSetText = false;
+            }
+        }
     }
 }

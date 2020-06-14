@@ -28,6 +28,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
@@ -41,6 +42,8 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
+import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -56,6 +59,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.TextView;
@@ -71,6 +75,7 @@ import com.offsec.nhterm.emulatorview.UpdateCallback;
 import com.offsec.nhterm.emulatorview.compat.ClipboardManagerCompat;
 import com.offsec.nhterm.emulatorview.compat.ClipboardManagerCompatFactory;
 import com.offsec.nhterm.emulatorview.compat.KeycodeConstants;
+import com.offsec.nhterm.util.PermissionCheck;
 import com.offsec.nhterm.util.SessionList;
 import com.offsec.nhterm.util.TermSettings;
 
@@ -85,6 +90,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+
+import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
 
 /**
  * A terminal emulator activity.
@@ -139,6 +146,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     AlertDialog.Builder alertDialogBuilder;
     AlertDialog alertDialog = null;
     private BroadcastReceiver mPathReceiver = new BroadcastReceiver() {
+
         public void onReceive(Context context, Intent intent) {
             String path = makePathFromBundle(getResultExtras(false));
             if (intent.getAction().equals(ACTION_PATH_PREPEND_BROADCAST)) {
@@ -147,7 +155,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                 mSettings.setAppendPath(path);
             }
             mPendingPathBroadcasts--;
-
             if (mPendingPathBroadcasts <= 0 && mTermService != null) {
                 populateViewFlipper();
                 populateWindowList();
@@ -182,6 +189,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
         mSettings.readPrefs(sharedPreferences);
+        updatePrefs();
     }
 
     private class WindowListActionBarAdapter extends WindowListAdapter implements UpdateCallback {
@@ -305,6 +313,8 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
      */
     private View.OnKeyListener mKeyListener = new View.OnKeyListener() {
         public boolean onKey(View v, int keyCode, KeyEvent event) {
+            if (!getCurrentEmulatorView().isUsingCustomInputMethod)
+                setButtonToggledBackground(findViewById(R.id.button_ctrl), getCurrentEmulatorView().isCtrlPressed_defIM);
             return backkeyInterceptor(keyCode, event) || keyboardShortcuts(keyCode, event);
         }
 
@@ -365,6 +375,11 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
 
         Log.v(TermDebug.LOG_TAG, "onCreate");
 
+        // Ask for storage permission
+        if (!PermissionCheck.isAllPermitted(getApplicationContext(), PermissionCheck.DEFAULT_PERMISSIONS)) {
+            PermissionCheck.checkPermissions(getApplicationContext(), this, PermissionCheck.DEFAULT_PERMISSIONS, PermissionCheck.DEFAULT_PERMISSION_RQCODE);
+        }
+
         mPrivateAlias = new ComponentName(this, RemoteInterface.PRIVACT_ACTIVITY_ALIAS);
 
         if (icicle == null)
@@ -375,14 +390,19 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         mPrefs.registerOnSharedPreferenceChangeListener(this);
 
         Intent broadcast = new Intent(ACTION_PATH_BROADCAST);
-        if (AndroidCompat.SDK >= 12) {
+        if (android.os.Build.VERSION.SDK_INT >= 16)
+            broadcast.setFlags(FLAG_RECEIVER_FOREGROUND);
+        if (AndroidCompat.SDK >= 12)
             broadcast.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
-        }
+
         mPendingPathBroadcasts++;
         sendOrderedBroadcast(broadcast, PERMISSION_PATH_BROADCAST, mPathReceiver, null, RESULT_OK, null, null);
 
         broadcast = new Intent(broadcast);
         broadcast.setAction(ACTION_PATH_PREPEND_BROADCAST);
+        if (android.os.Build.VERSION.SDK_INT >= 16)
+            broadcast.setFlags(FLAG_RECEIVER_FOREGROUND);
+
         mPendingPathBroadcasts++;
         sendOrderedBroadcast(broadcast, PERMISSION_PATH_PREPEND_BROADCAST, mPathReceiver, null, RESULT_OK, null, null);
 
@@ -482,7 +502,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         mViewFlipper.onResume();
     }
     private void populateViewFlipper() {
-
         if (mTermService != null) {
             mTermSessions = mTermService.getSessions();
 
@@ -1128,6 +1147,19 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     }
 
     @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == PermissionCheck.DEFAULT_PERMISSION_RQCODE){
+            for (int grantResult:grantResults){
+                if (grantResult != 0){
+                    return;
+                }
+            }
+        }
+    }
+
+    @Override
     protected void onActivityResult(int request, int result, Intent data) {
         Log.d("onActivityResult?","?onActivityResult??");
         switch (request) {
@@ -1628,6 +1660,13 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         }
     }
 
+    private void setButtonToggledBackground(View buttonView, Boolean toggled) {
+        if (toggled)
+            buttonView.getBackground().setAlpha(128);
+        else
+            buttonView.getBackground().setAlpha(255);
+    }
+
     public void onClick(View v) {
         EmulatorView view = getCurrentEmulatorView();
         switch (v.getId()) {
@@ -1635,7 +1674,12 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                 doSendActionBarKey(view, KeycodeConstants.KEYCODE_ESCAPE);
                 break;
             case R.id.button_ctrl:
-                doSendActionBarKey(view, KeycodeConstants.KEYCODE_CTRL_LEFT);
+                if (view.isUsingCustomInputMethod) {
+                    doSendActionBarKey(view, KeycodeConstants.KEYCODE_CTRL_LEFT);
+                } else {
+                    view.isCtrlPressed_defIM = !view.isCtrlPressed_defIM;
+                    setButtonToggledBackground(findViewById(R.id.button_ctrl), view.isCtrlPressed_defIM);
+                }
                 break;
             case R.id.button_alt:
                 doSendActionBarKey(view, KeycodeConstants.KEYCODE_ALT_LEFT);
