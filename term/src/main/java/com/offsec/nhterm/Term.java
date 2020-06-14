@@ -189,6 +189,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
         mSettings.readPrefs(sharedPreferences);
+        updatePrefs();
     }
 
     private class WindowListActionBarAdapter extends WindowListAdapter implements UpdateCallback {

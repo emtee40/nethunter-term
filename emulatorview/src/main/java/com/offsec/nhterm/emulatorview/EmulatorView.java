@@ -54,6 +54,7 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CompletionInfo;
@@ -198,6 +199,11 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
     private int mSelY1 = -1;
     private int mSelX2 = -1;
     private int mSelY2 = -1;
+
+    private ScaleGestureDetector mScaleDetector;
+    private static int origPrefTextSize = 13; // this must be static, otherwise, it will always be changed.
+    private int tempPrefTextSize;
+    private int last_tempPrefTextSize;
 
     /**
      * Routing alt and meta keyCodes away from the IME allows Alt key processing to work on
@@ -557,6 +563,8 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         mMouseTrackingFlingRunner.mScroller = new Scroller(context);
         setHwAcceleration(mHardwareAcceleration);
         mHaveFullHwKeyboard = checkHaveFullHwKeyboard(getResources().getConfiguration());
+        mScaleDetector = new ScaleGestureDetector(context, new ScaleListener());
+        origPrefTextSize = Integer.parseInt(context.getSharedPreferences("com.offsec.nhterm_preferences", Context.MODE_PRIVATE).getString("fontsize", String.valueOf((int) 13)));
     }
 
     /**
@@ -1359,9 +1367,13 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         if (mIsSelectingText) {
             return onTouchEventWhileSelectingText(ev);
         } else {
-            return mGestureDetector.onTouchEvent(ev);
+            mScaleDetector.onTouchEvent(ev);
+            if (!mScaleDetector.isInProgress())
+                mGestureDetector.onTouchEvent(ev);
+            return true;
         }
     }
+
 
     private boolean onTouchEventWhileSelectingText(MotionEvent ev) {
         int action = ev.getAction();
@@ -2054,6 +2066,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         mTopOfScreenMargin = mTextRenderer.getTopMargin();
         mRows = Math.max(1, (h - mTopOfScreenMargin) / mCharacterHeight);
         mVisibleRows = Math.max(1, (mVisibleHeight - mTopOfScreenMargin) / mCharacterHeight);
+
         mTermSession.updateSize(mColumns, mRows);
 
         // Reset our paging:
@@ -2331,5 +2344,54 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
             }
         }
         return false;
+    }
+
+    private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
+
+        private float accumlatedScaleFactor = 1.0f;
+        private boolean canSetText = false;
+
+        @Override
+        public boolean onScale(ScaleGestureDetector detector) {
+            float currentScaleFactor = detector.getScaleFactor();
+            // When accumlatedScaleFactor is at or back to initial state which means not yet accumlate with any currentScaleFactor.
+            if (accumlatedScaleFactor == 1.0f) {
+                tempPrefTextSize = origPrefTextSize;
+                last_tempPrefTextSize = tempPrefTextSize;
+            }
+
+            // Just make sure accumlatedScaleFactor smaller that 0, otherwise the text size will become negative.
+            if (accumlatedScaleFactor + (currentScaleFactor - 1.0f) >= 0) {
+                accumlatedScaleFactor += (currentScaleFactor - 1.0f);
+            } else {
+                invalidate();
+                return true;
+            }
+
+            // The minimium text size should be 2, otherwise
+            // 1: 0 * accumlatedScaleFactor will always be 0
+            // 2: 1 * 1.xx will take a long time to back to 2
+            tempPrefTextSize = Math.max((int)(origPrefTextSize * accumlatedScaleFactor), 2);
+
+            // If the size is really changed, then set the text size and update last_tempPrefTextSize
+            if (tempPrefTextSize != last_tempPrefTextSize) {
+                setTextSize(tempPrefTextSize);
+                last_tempPrefTextSize = tempPrefTextSize;
+                canSetText = true;
+            }
+            invalidate();
+            return true;
+        }
+
+        @Override
+        public void onScaleEnd(ScaleGestureDetector detector) {
+            super.onScaleEnd(detector);
+            if (canSetText) {
+                getRootView().getContext().getSharedPreferences("com.offsec.nhterm_preferences", Context.MODE_PRIVATE).edit().putString("fontsize", String.valueOf(tempPrefTextSize)).apply();
+                accumlatedScaleFactor = 1.0f;
+                origPrefTextSize = tempPrefTextSize;
+                canSetText = false;
+            }
+        }
     }
 }
