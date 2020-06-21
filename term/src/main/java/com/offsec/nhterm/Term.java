@@ -313,8 +313,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
      */
     private View.OnKeyListener mKeyListener = new View.OnKeyListener() {
         public boolean onKey(View v, int keyCode, KeyEvent event) {
-            if (!getCurrentEmulatorView().isUsingCustomInputMethod)
-                setButtonToggledBackground(findViewById(R.id.button_ctrl), getCurrentEmulatorView().isCtrlPressed_defIM);
             return backkeyInterceptor(keyCode, event) || keyboardShortcuts(keyCode, event);
         }
 
@@ -1674,12 +1672,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                 doSendActionBarKey(view, KeycodeConstants.KEYCODE_ESCAPE);
                 break;
             case R.id.button_ctrl:
-                if (view.isUsingCustomInputMethod) {
-                    doSendActionBarKey(view, KeycodeConstants.KEYCODE_CTRL_LEFT);
-                } else {
-                    view.isCtrlPressed_defIM = !view.isCtrlPressed_defIM;
-                    setButtonToggledBackground(findViewById(R.id.button_ctrl), view.isCtrlPressed_defIM);
-                }
+                doSendActionBarKey(view, KeycodeConstants.KEYCODE_CTRL_LEFT);
                 break;
             case R.id.button_alt:
                 doSendActionBarKey(view, KeycodeConstants.KEYCODE_ALT_LEFT);
