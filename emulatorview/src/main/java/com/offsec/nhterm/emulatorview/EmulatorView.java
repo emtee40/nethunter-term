@@ -52,6 +52,7 @@ import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.GestureDetector;
+import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -184,7 +185,10 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
     private boolean mIsFnKeySent = false;
 
     // This is only used when user is using default system input method.
-    public boolean isCtrlPressed_defIM = false;
+    public boolean isCtrlPressed_defIME = false;
+    public boolean isAltPressed_defIME = false;
+    public boolean isFnKeyPressed_defIME = false;
+    public int metaState_defIME = 0;
     public boolean isUsingCustomInputMethod = false;
 
     private boolean mMouseTracking;
@@ -670,7 +674,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
                 EditorInfo.TYPE_NULL;
 
         // Everytime the user change the keyboard input method, reset the meta key status and check again the user keyboard input method.
-        switchOffAllMetaKey();
+        switchOffAllMetaKey_defIME();
         isUsingCustomInputMethod = isUsingCustomInputMethod();
 
         return new BaseInputConnection(this, true) {
@@ -936,7 +940,6 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
                 if (LOG_IME) {
                     Log.w(TAG, "sendKeyEvent(" + event + ")");
                 }
-
                 // Some keys are sent here rather than to commitText.
                 // In particular, del and the digit keys are sent here.
                 // (And I have reports that the HTC Magic also sends Return here.)
@@ -945,15 +948,20 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
                 // So if user is using default system keyboard input method, sendKeyEvent() is called here.
                 // but somehow the key combination is not working through normal dispatchKeyEvent()
                 // the new KeyEvent class must be initialized with which meta key to use.
-                if (!isUsingCustomInputMethod) {
+                if (!isUsingCustomInputMethod && (isCtrlPressed_defIME || isFnKeyPressed_defIME || isAltPressed_defIME)) {
                     dispatchKeyEvent(new KeyEvent(
                             event.getDownTime(),
                             event.getEventTime(),
                             event.getAction(),
-                            event.getKeyCode(),
+                            (isFnKeyPressed_defIME && (!isCtrlPressed_defIME && !isAltPressed_defIME)) ?
+                                combineFnKeyToKeyCode(event.getDisplayLabel(), event.getKeyCode()) :
+                                event.getKeyCode(),
                             event.getRepeatCount(),
                             chooseMetaKeyToUse()));
-                    switchOffAllMetaKey();
+                    if (mKeyListener.getCtrlUIMode() != TextRenderer.MODE_LOCKED) isCtrlPressed_defIME = false;
+                    if (mKeyListener.getAltUIMode() != TextRenderer.MODE_LOCKED) isAltPressed_defIME = false;
+                    if (mKeyListener.getFnKeyUIMode() != TextRenderer.MODE_LOCKED) isFnKeyPressed_defIME = false;
+                    metaState_defIME = 0;
                 } else {
                     dispatchKeyEvent(event);
                 }
@@ -1518,6 +1526,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         mIsFnKeySent = true;
         mKeyListener.handleFnKey(true);
         mKeyListener.handleFnKey(false);
+        isFnKeyPressed_defIME = mKeyListener.isFnKeyActive();
         invalidate();
     }
 
@@ -1526,6 +1535,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         mIsAltKeySent = true;
         mKeyListener.handleAltKey(true);
         mKeyListener.handleAltKey(false);
+        isAltPressed_defIME = mKeyListener.isAltActive();
         invalidate();
     }
 
@@ -1534,6 +1544,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         mIsControlKeySent = true;
         mKeyListener.handleControlKey(true);
         mKeyListener.handleControlKey(false);
+        isCtrlPressed_defIME = mKeyListener.isCtrlActive();
         invalidate();
     }
 
@@ -1959,6 +1970,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
                 Log.w(TAG, "handleControlKey " + keyCode);
             }
             mKeyListener.handleControlKey(down);
+            if (down) isCtrlPressed_defIME = mKeyListener.getCtrlUIMode() != TextRenderer.MODE_OFF;
             invalidate();
             return true;
         }
@@ -1985,6 +1997,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
                 Log.w(TAG, "handleFnKey " + keyCode);
             }
             mKeyListener.handleFnKey(down);
+            if (down) isFnKeyPressed_defIME = mKeyListener.getFnKeyUIMode() != TextRenderer.MODE_OFF;
             invalidate();
             return true;
         }
@@ -2213,6 +2226,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
     public void sendControlKey() {
         mIsControlKeySent = true;
         mKeyListener.handleControlKey(true);
+        isCtrlPressed_defIME = true;
         invalidate();
     }
 
@@ -2223,6 +2237,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
     public void sendFnKey() {
         mIsFnKeySent = true;
         mKeyListener.handleFnKey(true);
+        isFnKeyPressed_defIME = true;
         invalidate();
     }
 
@@ -2312,15 +2327,84 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         restartInput();
     }
 
+    public int combineFnKeyToKeyCode(char ch, int keyCode) {
+        int result = 0;
+        if (ch == 'w' || ch == 'W') {
+            result = KeyEvent.KEYCODE_DPAD_UP;
+        } else if (ch == 'a' || ch == 'A') {
+            result = KeyEvent.KEYCODE_DPAD_LEFT;
+        } else if (ch == 's' || ch == 'S') {
+            result = KeyEvent.KEYCODE_DPAD_DOWN;
+        } else if (ch == 'd' || ch == 'D') {
+            result = KeyEvent.KEYCODE_DPAD_RIGHT;
+        } else if (ch == 'p' || ch == 'P') {
+            result = KeyEvent.KEYCODE_PAGE_UP;
+        } else if (ch == 'n' || ch == 'N') {
+            result = KeyEvent.KEYCODE_PAGE_DOWN;
+        } else if (ch == 't' || ch == 'T') {
+            result = KeyEvent.KEYCODE_TAB;
+        } else if (ch == 'l' || ch == 'L') {
+            metaState_defIME = 1;
+            result = KeyEvent.KEYCODE_BACKSLASH; // ^|
+        } else if (ch == 'u' || ch == 'U') {
+            metaState_defIME = 1;
+            result = KeyEvent.KEYCODE_MINUS; // ^_
+        } else if (ch == 'e' || ch == 'E') {
+            result = KeyEvent.KEYCODE_ESCAPE; // ^[ (Esc)
+        } else if (ch == '.') {
+            metaState_defIME = KeyEvent.META_CTRL_ON;
+            result = KeyEvent.KEYCODE_BACKSLASH; // ^\
+        } else if (ch == '1') {
+            result = KeyEvent.KEYCODE_F1;
+        } else if (ch == '2') {
+            result = KeyEvent.KEYCODE_F2;
+        } else if (ch == '3') {
+            result = KeyEvent.KEYCODE_F3;
+        } else if (ch == '4') {
+            result = KeyEvent.KEYCODE_F4;
+        } else if (ch == '5') {
+            result = KeyEvent.KEYCODE_F5;
+        } else if (ch == '6') {
+            result = KeyEvent.KEYCODE_F6;
+        } else if (ch == '7') {
+            result = KeyEvent.KEYCODE_F7;
+        } else if (ch == '8') {
+            result = KeyEvent.KEYCODE_F8;
+        } else if (ch == '9') {
+            result = KeyEvent.KEYCODE_F9;
+        } else if (ch == '0') {
+            result = KeyEvent.KEYCODE_F10;
+        } else if (ch == 'i' || ch == 'I') {
+            result = KeyEvent.KEYCODE_INSERT;
+        } else if (ch == 'x' || ch == 'X') {
+            result = KeyEvent.KEYCODE_FORWARD_DEL;
+        } else if (ch == 'h' || ch == 'H') {
+            result = KeyEvent.KEYCODE_MOVE_HOME;
+        } else if (ch == 'f' || ch == 'F') {
+            result = KeyEvent.KEYCODE_MOVE_END;
+        }
+        if (result > -1) {
+            mKeyListener.updateAllMetaKeyCursorMode();
+        }
+        return result == 0 ? keyCode : result;
+    }
     // function to choose which meta key to use, other meta keys may be added in the future.
     public int chooseMetaKeyToUse() {
-        if (isCtrlPressed_defIM) return KeyEvent.META_CTRL_ON;
-        return 0;
+        if ((isCtrlPressed_defIME && isAltPressed_defIME) ||
+                (isCtrlPressed_defIME && isFnKeyPressed_defIME) ||
+                (isFnKeyPressed_defIME && isAltPressed_defIME)) metaState_defIME = 0;
+        else if (isFnKeyPressed_defIME) return metaState_defIME;
+        else if (isCtrlPressed_defIME) metaState_defIME = KeyEvent.META_CTRL_ON;
+        else if (isAltPressed_defIME) metaState_defIME = KeyEvent.META_ALT_ON;
+        return metaState_defIME;
     }
 
     // function to switch off all meta key status, other meta keys may be added in the future.
-    public void switchOffAllMetaKey() {
-        isCtrlPressed_defIM = false;
+    public void switchOffAllMetaKey_defIME() {
+        isCtrlPressed_defIME = false;
+        isAltPressed_defIME = false;
+        isFnKeyPressed_defIME = false;
+        metaState_defIME = 0;
     }
 
     // function to check if the keyboard the user using is a default system keyboard input method
