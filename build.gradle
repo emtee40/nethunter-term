@@ -27,7 +27,3 @@ ext {
     versionCode=2019020100
     versionName="2019.2"
 }
-
-android {
-    ndkVersion "21.0.6113669"
-}
