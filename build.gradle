@@ -25,6 +25,6 @@ ext {
     targetSdkVersion=29
     //version=YYYYMMVVRR (Either "VV" for stable version OR "RR" for pre-release candidate (e.g. 0001 for rc1)
     versionCode=2020030100
-    versionName="2020.3-rc1"
+    versionName="2020.3"
 }
 
