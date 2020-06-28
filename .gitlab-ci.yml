@@ -66,7 +66,7 @@ assembleDebugAuto:
     only:
     - branches
     except:
-    - master
+    - nethunter
     
 assembleDebugManual:
     extends: .assembleDebug
@@ -75,7 +75,7 @@ assembleDebugManual:
 assembleReleaseAuto:
     extends: .assembleRelease
     only:
-    - master
+    - nethunter
     
 assembleReleaseManual:
     extends: .assembleRelease
