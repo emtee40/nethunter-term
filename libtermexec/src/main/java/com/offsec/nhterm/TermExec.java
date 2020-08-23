@@ -103,7 +103,7 @@ public class TermExec {
     {
         final int integerFd;
 
-        if (Build.VERSION.SDK_INT >= 12)
+        if (Build.VERSION.SDK_INT >= 14)
             integerFd = FdHelperHoneycomb.getFd(masterFd);
         else {
             try {

@@ -505,11 +505,7 @@ class TermKeyListener {
         }
 
         if (result > -1) {
-            mAltKey.adjustAfterKeypress();
-            mCapKey.adjustAfterKeypress();
-            mControlKey.adjustAfterKeypress();
-            mFnKey.adjustAfterKeypress();
-            updateCursorMode();
+            updateAllMetaKeyCursorMode();
         }
 
         return result;
@@ -648,7 +644,16 @@ class TermKeyListener {
         return mCursorMode;
     }
 
-    private void updateCursorMode() {
+    public void updateAllMetaKeyCursorMode() {
+        mAltKey.adjustAfterKeypress();
+        mCapKey.adjustAfterKeypress();
+        mControlKey.adjustAfterKeypress();
+        mFnKey.adjustAfterKeypress();
+        updateCursorMode();
+    }
+
+
+    public void updateCursorMode() {
         mCursorMode = getCursorModeHelper(mCapKey, TextRenderer.MODE_SHIFT_SHIFT)
                 | getCursorModeHelper(mAltKey, TextRenderer.MODE_ALT_SHIFT)
                 | getCursorModeHelper(mControlKey, TextRenderer.MODE_CTRL_SHIFT)
@@ -803,4 +808,12 @@ class TermKeyListener {
     public boolean isCtrlActive() {
         return mControlKey.isActive();
     }
+
+    public boolean isFnKeyActive() { return mFnKey.isActive(); }
+
+    public int getCtrlUIMode() { return mControlKey.getUIMode(); }
+
+    public int getAltUIMode() { return mAltKey.getUIMode(); }
+
+    public int getFnKeyUIMode() { return mFnKey.getUIMode(); }
 }

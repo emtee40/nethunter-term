@@ -28,6 +28,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
@@ -41,6 +42,8 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
+import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -56,6 +59,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.TextView;
@@ -71,6 +75,7 @@ import com.offsec.nhterm.emulatorview.UpdateCallback;
 import com.offsec.nhterm.emulatorview.compat.ClipboardManagerCompat;
 import com.offsec.nhterm.emulatorview.compat.ClipboardManagerCompatFactory;
 import com.offsec.nhterm.emulatorview.compat.KeycodeConstants;
+import com.offsec.nhterm.util.PermissionCheck;
 import com.offsec.nhterm.util.SessionList;
 import com.offsec.nhterm.util.TermSettings;
 
@@ -85,6 +90,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+
+import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
 
 /**
  * A terminal emulator activity.
@@ -139,6 +146,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     AlertDialog.Builder alertDialogBuilder;
     AlertDialog alertDialog = null;
     private BroadcastReceiver mPathReceiver = new BroadcastReceiver() {
+
         public void onReceive(Context context, Intent intent) {
             String path = makePathFromBundle(getResultExtras(false));
             if (intent.getAction().equals(ACTION_PATH_PREPEND_BROADCAST)) {
@@ -147,7 +155,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                 mSettings.setAppendPath(path);
             }
             mPendingPathBroadcasts--;
-
             if (mPendingPathBroadcasts <= 0 && mTermService != null) {
                 populateViewFlipper();
                 populateWindowList();
@@ -182,6 +189,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
         mSettings.readPrefs(sharedPreferences);
+        updatePrefs();
     }
 
     private class WindowListActionBarAdapter extends WindowListAdapter implements UpdateCallback {
@@ -365,6 +373,11 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
 
         Log.v(TermDebug.LOG_TAG, "onCreate");
 
+        // Ask for storage permission
+        if (!PermissionCheck.isAllPermitted(getApplicationContext(), PermissionCheck.DEFAULT_PERMISSIONS)) {
+            PermissionCheck.checkPermissions(getApplicationContext(), this, PermissionCheck.DEFAULT_PERMISSIONS, PermissionCheck.DEFAULT_PERMISSION_RQCODE);
+        }
+
         mPrivateAlias = new ComponentName(this, RemoteInterface.PRIVACT_ACTIVITY_ALIAS);
 
         if (icicle == null)
@@ -375,14 +388,19 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         mPrefs.registerOnSharedPreferenceChangeListener(this);
 
         Intent broadcast = new Intent(ACTION_PATH_BROADCAST);
-        if (AndroidCompat.SDK >= 12) {
+        if (android.os.Build.VERSION.SDK_INT >= 16)
+            broadcast.setFlags(FLAG_RECEIVER_FOREGROUND);
+        if (AndroidCompat.SDK >= 12)
             broadcast.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
-        }
+
         mPendingPathBroadcasts++;
         sendOrderedBroadcast(broadcast, PERMISSION_PATH_BROADCAST, mPathReceiver, null, RESULT_OK, null, null);
 
         broadcast = new Intent(broadcast);
         broadcast.setAction(ACTION_PATH_PREPEND_BROADCAST);
+        if (android.os.Build.VERSION.SDK_INT >= 16)
+            broadcast.setFlags(FLAG_RECEIVER_FOREGROUND);
+
         mPendingPathBroadcasts++;
         sendOrderedBroadcast(broadcast, PERMISSION_PATH_PREPEND_BROADCAST, mPathReceiver, null, RESULT_OK, null, null);
 
@@ -482,7 +500,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         mViewFlipper.onResume();
     }
     private void populateViewFlipper() {
-
         if (mTermService != null) {
             mTermSessions = mTermService.getSessions();
 
@@ -596,9 +613,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     }
 
     protected static TermSession createTermSession(Context context, TermSettings settings, String initialCommand, String _mShell) throws IOException {
-
-
-
         Log.d("MM createTermSession", _mShell + "cmd: " + initialCommand);
         GenericTermSession session = new ShellTermSession(settings, initialCommand, _mShell);  // called from intents
         // XXX We should really be able to fetch this from within TermSession
@@ -896,12 +910,12 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                                 if(CheckRoot.isDeviceRooted()){
                                     Log.d("isDeviceRooted","Device is rooted!");
 
-                                String chroot_dir = "/data/local/nhsystem/kali-armhf"; // Not sure if I can wildcard this
+                                    String chroot_dir = "/data/local/nhsystem/kalifs/bin";        // symlink to architeture specific rootfs
+                                    String chroot_olddir = "/data/local/nhsystem/kali-armhf/bin"; // Legacy rootfs directory used prior to 2020.1
+
 
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                                        if (!dir_exists(chroot_dir)){
-                                            NotFound(chroot_dir);
-                                        } else {
+                                        if (dir_exists(chroot_dir) || dir_exists(chroot_olddir)){
                                             TermSession session = null;
                                             try {
                                                 session = createTermSession(getBaseContext(), settings, "", ShellType.KALI_LOGIN_SHELL);
@@ -916,6 +930,8 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                                             if (from.equals("populateViewFlipper")) {
                                                 end_populateViewFlipper();
                                             }
+                                        } else {
+                                            NotFound(chroot_dir);
                                         }
                                     }
                                 } else {
@@ -995,7 +1011,7 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
 
         if (Objects.equals(text, "/data/data/com.offsec.nethunter/files/scripts/bootkali")){
             msg = "Please run Nethunter Application to generate!";
-        } else if (Objects.equals(text, "/data/local/nhsystem/kali-armhf")){
+        } else if (Objects.equals(text, "/data/local/nhsystem/kali-armhf/bin")){
             msg = "Missing chroot.  You need to install from Chroot Manager";
         }
         /// Do something for not found text (alertDialog)
@@ -1126,6 +1142,19 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
             Log.d("NOSCREENS?","?NOSCREENS??");
         }
 
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == PermissionCheck.DEFAULT_PERMISSION_RQCODE){
+            for (int grantResult:grantResults){
+                if (grantResult != 0){
+                    return;
+                }
+            }
+        }
     }
 
     @Override
@@ -1627,6 +1656,13 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
         if (AndroidCompat.SDK >= 14) {
             button.setAllCaps(false);
         }
+    }
+
+    private void setButtonToggledBackground(View buttonView, Boolean toggled) {
+        if (toggled)
+            buttonView.getBackground().setAlpha(128);
+        else
+            buttonView.getBackground().setAlpha(255);
     }
 
     public void onClick(View v) {

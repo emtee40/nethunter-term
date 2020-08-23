@@ -388,9 +388,9 @@ class TerminalEmulator {
      * UTF-8 support
      */
     private static final int UNICODE_REPLACEMENT_CHAR = 0xfffd;
-    private boolean mDefaultUTF8Mode = false;
-    private boolean mUTF8Mode = false;
-    private boolean mUTF8EscapeUsed = false;
+    private boolean mDefaultUTF8Mode = true;
+    private boolean mUTF8Mode = true;
+    private boolean mUTF8EscapeUsed = true;
     private int mUTF8ToFollow = 0;
     private ByteBuffer mUTF8ByteBuffer;
     private CharBuffer mInputCharBuffer;
