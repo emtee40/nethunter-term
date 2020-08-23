@@ -1354,7 +1354,10 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
     private boolean canPaste() {
         ClipboardManagerCompat clip = ClipboardManagerCompatFactory
                 .getManager(getApplicationContext());
-        return clip.hasText();
+        if (clip.hasText()) {
+            return true;
+        }
+        return false;
     }
 
     private void doPreferences() {
@@ -1721,7 +1724,6 @@ public class Term extends Activity implements UpdateCallback, SharedPreferences.
                 break;
             case R.id.button_vim_paste:
                 doPaste();
-                //sendKeyStrings("\"*p", false);
                 break;
             case R.id.button_vim_yank:
                 sendKeyStrings("\"*yy", false);
