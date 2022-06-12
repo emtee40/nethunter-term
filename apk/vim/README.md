@@ -39,4 +39,4 @@
      terminfo / 73 → terminfo / s
    
 
-**// Google translation from terminfo.txt included in terminfo.zip file from the original Japanese.  //**
+**// Google translation from terminfo.txt included in terminfo.zip file from the original Japanese. //**
